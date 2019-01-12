@@ -1,0 +1,16 @@
+Changes
+Build.PL
+Makefile.PL
+MANIFEST
+README.md
+lib/Convert/Base81.pm
+t/00-load.t
+t/01-encode.t
+t/02-pack81.t
+t/03-edgecases.t
+t/interface.t
+t/pod-coverage.t
+t/pod.t
+META.json
+META.yml
+LICENSE
