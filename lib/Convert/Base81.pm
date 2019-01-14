@@ -5,6 +5,9 @@ use warnings;
 use strict;
 
 use Carp;
+use Math::Int128 qw(uint128 uint128_to_number
+	uint128_add uint128_divmod uint128_left uint128_mul);
+
 #use Smart::Comments q(###);
 
 our $VERSION = '1.00';
@@ -17,7 +20,7 @@ our %EXPORT_TAGS = (
 );
 
 our @EXPORT_OK = (
-	qw(base81_check base81_encode base81_decode),
+	qw(base81_check base81_encode base81_decode rwsize),
 	@{ $EXPORT_TAGS{pack} },
 	@{ $EXPORT_TAGS{unpack} },
 );
@@ -48,19 +51,19 @@ or
 =head1 DESCRIPTION
 
 This module implements a I<Base81> conversion for encoding binary
-data as text. This is done by interpreting each group of seven bytes
-as a 56-bit integer, which is then converted to a nine-digit base 81
+data as text. This is done by interpreting each group of fifteen bytes
+as a 120-bit integer, which is then converted to a seventeen-digit base 81
 representation using the alphanumeric characters 0-9, A-Z, and a-z, in
-addition to the punctuation characters !, #, $, %, &, *, +, -, ;, <, =, >,
-?, @, ^, _, `, |, and ~, in that order.
+addition to the punctuation characters !, #, $, %, (, ), *,
++, -, ;, =, ?, @, ^, _, {, |, }, and ~, in that order, characters that
+are safe to use in JSON and XML formats.
 
-This creates a string that is nine sevenths (1.2857) larger than the original
+This creates a string that is (1.2666) larger than the original
 data, making it more efficient than L<MIME::Base64>'s 3-to-4 ratio (1.3333)
-but slightly less so than the efficiency of L<Convert::Base85> or
-L<Convert::Ascii85>'s 4-to-5 ratio (1.25).
+but slightly less so than the efficiency of L<Convert::Ascii85>'s 4-to-5 ratio (1.25).
 
-It does have the advantage of a natural ternary system: if your data has
-values composed of only three, or nine, or twenty-seven characters, its
+It does have the advantage of a natural ternary system: if your data is
+composed of only three, or nine, or twenty-seven distinct values, its
 size can be compressed instead of expanded, and this module has functions
 that will do that.
 
@@ -93,29 +96,33 @@ one-half and three-fourths the size of the original, respectively.
 # ('a'..'i') 36 | 1100   1101  110-   1110   1111   111-   11-0   11-1   11--
 # ('j'..'r') 45 | 1-00   1-01  1-0-   1-10   1-11   1-1-   1--0   1--1   1---
 # ('s'..'!') 54 | -000   -001  -00-   -010   -011   -01-   -0-0   -0-1   -0--
-# ('#'..'<') 63 | -100   -101  -10-   -110   -111   -11-   -1-0   -1-1   -1--
+# ('#'..';') 63 | -100   -101  -10-   -110   -111   -11-   -1-0   -1-1   -1--
 # ('='..'~') 72 | --00   --01  --0-   --10   --11   --1-   ---0   ---1   ----
 #
 #
 # Take a number from 0 to 80, and turn it into a character.
 #
-my @b81_encode = ('0' .. '9', 'A' .. 'Z', 'a' .. 'z',
-	'!', '#', '$', '%', '&', '*', '+', '-', ';',
-	'<', '=', '>', '?', '@', '^', '_', '`', '|', '~');
 
-#
-# Take the ord() of a character, and return the number (from 0 to 80)
-# for it. Wrong characters return -1.
-#
+my @b81_encode = ('0' .. '9', 'A' .. 'Z', 'a' .. 'z',
+	'!', '#', '$', '%', '(', ')', '*', '+', '-', ';',
+	'=', '?', '@', '^', '_', '{', '|', '}', '~');
+
+
 my @b81_decode = (
 	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-	-1, 62, -1, 63, 64, 65, 66, -1, -1, -1, 67, 68, -1, 69, -1, -1,
-	 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, -1, 70, 71, 72, 73, 74,
-	75, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-	25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, -1, -1, -1, 76, 77,
-	78, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
-	51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, 79, -1, 80, -1);
+	-1, 62, -1, 63, 64, 65, -1, -1, 66, 67, 68, 69, -1, 70, -1, -1,
+	 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, -1, 71, -1, 72, -1, 73,
+	74, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+	25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, -1, -1, -1, 75, 76,
+	-1, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+	51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 77, 78, 79, 80, -1,
+);
+
+my %rwsizes = (I128 => [15, 19], I64 => [7, 9]);
+my $rwkey = "I128";
+
+=head1 FUNCTIONS
 
 =head3 base81_check
 
@@ -126,7 +133,7 @@ Returns the first character position that fails the test, or -1 if no characters
     if (my $d = base81_check($base81str) != -1)
     {
         carp "Incorrect character at position $d; cannot decode input string";
-        return "";
+        return undef;
     }
 
 =cut
@@ -136,27 +143,17 @@ sub base81_check
 	my($str) = @_;
 	my(@chars) = split(//, $str);
 
+	#
+	### Check validity of: $str
+	### Which becomes array: @chars
+	#
 	for my $j (0 .. $#chars)
 	{
 		my $o = ord($chars[$j]);
-		return $j if ($o > 0x7f or $b81_decode[$0] == -1);
+		return $j if ($o > 0x7f or $b81_decode[$o] == -1);
 	}
 	return -1;
 }
-
-
-#for my $j (2 .. 18)
-#{
-#	my $e = 8 * $j;
-#	my $x = int(1 + log(2 ** $e)/log(81));
-#
-#	print " read $j write $x has a ", sprintf("%1.4f", $x/$j), " ratio.\n";
-#}
-#
-# >> read 7 write 9 has a   1.2857 ratio;
-#    read 15 write 19 has a much better 1.2666 ratio, but we'd need 128-bit integers.
-#
-#
 
 =head3 base81_encode
 
@@ -166,35 +163,55 @@ Converts input data to Base81 test.
 
 This function may be exported as C<base81_encode> into the caller's namespace.
 
+    my $datalen = length($data);
+    my $encoded = base81_encode($data); 
+
+Or, if you  want to have managable lines, read 45 bytes at a time and
+write 57-character lines (remembering that C<encode()> takes 15 bytes
+at a time and encodes to 19 bytes). Remember to save the original length
+in case the data had to be padded out to a multiple of 15.
+
 =cut
 
 sub encode
 {
 	my($plain) = @_;
 	my @mlist;
+	my($readsize, $writesize) = rwsize();
+	my $imod = uint128(81);
+	my $rem = uint128();
 
 	#
-	# Extra zero bytes to bring the length up to a multiple of seven.
+	# Extra zero bytes to bring the length up to the read size.
 	#
-	my $extra = -length($plain) % 7;
-	$plain .= "\0" x -$extra;
+	my $extra = -length($plain) % $readsize;
+	$plain .= "\0" x $extra;
 
-	for my $str7 (unpack '(a7)*', $plain)
+	for my $str7 (unpack "(a${readsize})*", $plain)
 	{
-		my $total7 = 0;
-		my @tmplist = (0) x 9;
-
-		map{$total7 = ($total7 << 8) + $_} unpack('c*', $str7);
+		my $ptotal = uint128(0);
+		my @tmplist = (0) x $writesize;
 
 		#
-		### total7 = sprintf('0x%0x', $total7)
+		# Calculate $ptotal = ($ptotal << 8) + $c;
 		#
-		for my $j (reverse 0 .. 8)
+		for my $c (unpack('C*', $str7))
 		{
-			last if ($total7 == 0);
-			$tmplist[$j] = $total7 % 81;
-			$total7 = int $total7/81;
+			uint128_left($ptotal, $ptotal, 8);
+			uint128_add($ptotal, $ptotal, uint128($c));
 		}
+
+		#
+		### rtotal:  "$ptotal"
+		#
+		# Calculate the mod 81 list.
+		#
+		for my $j (reverse 0 .. $writesize - 1)
+		{
+			uint128_divmod($ptotal, $rem, $ptotal, $imod);
+			$tmplist[$j] = uint128_to_number($rem);
+		}
+
 		push @mlist, @tmplist;
 	}
 
@@ -207,45 +224,57 @@ sub encode
 
 =head3 Convert::Base81::decode
 
-Converts the Base81-encoded string back to bytes. Spaces, linebreaks, and other
-whitespace are stripped from the string if present.
+Converts the Base81-encoded string back to bytes. Any spaces, linebreaks, or
+other whitespace are stripped from the string before decoding.
 
 This function may be exported as C<base81_decode> into the caller's namespace.
+
+If your original data wasn't an even multiple of fifteen in length, the
+decoded data will have some padding with null bytes ('\0'), which can be removed.
+
+    #
+    # Decode the string and compare its length with the length of the original data.
+    #
+    my $decoded = base81_decode($data); 
+    my $padding = length($decoded) - $datalen;
+    chop $decoded while ($padding-- > 0);
 
 =cut
 
 sub decode
 {
-	my ($encoded) = @_;
+	my($encoded) = @_;
+	my($readsize, $writesize) = rwsize();
+	my $imul = uint128(81);
+	my $rem = uint128();
 
 	$encoded =~ tr[ \t\r\n\f][]d;
 
+	my $extra = -length($encoded) % $writesize;
+	$encoded .= '0' x $extra if ($extra != 0);
+
 	my @mlist;
-	my $extra = -length($encoded) % 9;
 
-	if ($extra != 0)
+	for my $str9 (unpack "(a${writesize})*", $encoded)
 	{
-		warn "The encoded string length is not a multple of nine, and may be in error.";
-		warn "Padding with zeros to the proper length.";
-		$encoded .= '0' x $extra;
-	}
+		my $etotal = uint128(0);
+		my @tmplist = (q(0)) x $readsize;
 
-	for my $str9 (unpack '(a9)*', $encoded)
-	{
-		my $total9 = 0;
-		my @tmplist = (0) x 7;
-
-		map{$total9 = $total9 * 81 + $_} map{$b81_decode[$_]} unpack('c*', $str9);
+		for my $c (unpack('C*', $str9))
+		{
+			my $iadd = uint128($b81_decode[$c]);
+			uint128_mul($etotal, $etotal, $imul);
+			uint128_add($etotal, $etotal, $iadd);
+		}
 
 		#
 		### Read string: $str9
-		### total =  sprintf("0x%0x", $total9)
+		### total =  sprintf("0x%0x", $etotal)
 		#
-		for my $j (reverse 0 .. 6)
+		for my $j (reverse 0 .. $readsize - 1)
 		{
-			last if ($total9 == 0);
-			$tmplist[$j] = $total9 & 0xff;
-			$total9 >>= 8;
+			uint128_divmod($etotal, $rem, $etotal, uint128(256));
+			$tmplist[$j] = uint128_to_number($rem);
 		}
 		push @mlist, @tmplist;
 	}
@@ -255,11 +284,59 @@ sub decode
 
 *base81_decode = \&decode;
 
+=head3 rwsize
+
+By default, the C<encode()> function reads 15 bytes, and writes 19,
+resulting in an expansion ratio of 1.2666. It does require 128-bit
+integers to calculate this, which is simulated in a library. If your
+decoding destination doesn't have a library available, the encode
+function can be reduced to reading 7 bytes and writing 9, giving an
+expansion ratio of 1.2857. This only requires 64-bit integers, which
+many environments can handle.
+
+Note that this does not affect the operation of this module, which
+will use 128-bit integers regardless.
+
+To set the smaller size, use:
+
+    my($readsize, $writesize) = rwsize("I64");
+
+To set it back:
+
+    my($readsize, $writesize) = rwsize("I128");
+
+To simply find out the current read/write sizes:
+
+    my($readsize, $writesize) = rwsize();
+
+Obviously, if you use the smaller sized encoding, you need to
+send that information along with the encoded data.
+
+=cut
+
+sub rwsize
+{
+	if (scalar @_ > 0)
+	{
+		my $key = $_[0];
+
+		if (exists $rwsizes{$key})
+		{
+			$rwkey = $key;
+		}
+		else
+		{
+			carp "Unknown key '$key'";
+		}
+	}
+
+	return @{$rwsizes{$rwkey}};
+}
+
 =head2 the 'pack' tag
 
-If your data falls into a domain of characters of 3, 9, or 27, then the Base81
-format can compress your data to 1/4, 1/2, or 3/4, its original size.
-
+If your data falls into a domain of 3, 9, or 27 characters, then the Base81
+format can compress your data to 1/4, 1/2, or 3/4, of its original size.
 
 =head3 b3_pack81
 
@@ -324,7 +401,7 @@ or
 
     b9_pack81("012345678", \@inputarray);
 
-Transform a string (or array) consisting of three and only three
+Transform a string (or array) consisting of up to nine
 characters into a Base 81 string.
 
     $packedstr = b9_pack81("012345678", "6354822345507611");
@@ -356,6 +433,8 @@ sub b9_pack81
 	}
 
 	#
+	### Input data: @blist
+	#
 	# Pad by a zero character if the data length is odd.
 	#
 	push @blist, substr $c9, 0, 1 if (scalar(@blist) % 2);
@@ -379,7 +458,7 @@ or
 
     b27_pack81($twenty7_chars, \@inputarray);
 
-Transform a string (or array) consisting of only twenty-seven
+Transform a string (or array) consisting of up to twenty-seven
 characters into a Base 81 string.
 
     $base27str = join("", ('a' .. 'z', '_'));
@@ -399,6 +478,7 @@ sub b27_pack81
 
 	#
 	# Set up the conversion hash and collect the input data.
+	### b27_pack81 input data: $data
 	#
 	my $ctr = 0;
 	my %x27 = map{ $_ => $ctr++} split //, $c27;
@@ -413,11 +493,11 @@ sub b27_pack81
 	}
 
 	#
+	### Input data: @blist
+	#
 	# Save any leftover characters in advance of taking four at a time.
 	#
 	my @tail = splice(@blist, scalar @blist - scalar(@blist) % 4);
-
-	my $hold = 0;
 
 	#
 	#   z0  y0    z1  y1  z2  y2   z3   y3
@@ -441,11 +521,14 @@ sub b27_pack81
 		push @clist, @mods;
 	}
 
+	#
+	### Remaining portion of input: @tail
+	#
 	if (scalar @tail)
 	{
 		my $x = $tail[0] * 3;
 
-		if (scalar @tail >= 2)
+		if (scalar @tail == 2)
 		{
 			$x += $tail[1]/9;
 			push @clist, $b81_encode[$x];
@@ -454,11 +537,13 @@ sub b27_pack81
 
 		if (scalar @tail == 3)
 		{
-			$x += $tail[2]/3;
+			$x += $tail[1]/9;
+			push @clist, $b81_encode[$x];
+			$x = (($tail[1] % 9) * 9) + $tail[2]/3;
 			push @clist, $b81_encode[$x];
 			$x = $tail[2] % 3;
 		}
-		push @clist, $b81_encode[$x];
+		push @clist, $b81_encode[$x] if ($x != 0);
 	}
 
 	return join "", @clist;
@@ -467,16 +552,18 @@ sub b27_pack81
 =head2 the 'unpack' tag
 
 Naturally, data packed must needs be unpacked, and the following three functions
-perform that duty. Note that they only return strings, not arrays.
+perform that duty.
 
 =head3 b3_unpack81
 
-    $data = b3_unpack81($three_chars, $packedstring);
+Transform a Base81 string back into a string (or array) using
+only three characters.
 
-Transform a string (or array) consisting of three and only three
-characters into a Base 81 string.
+    $data = b3_unpack81("012", "d`+qxW?q");
 
-    $str = b3_unpack81($three_chars, "0028401725032021");
+or
+
+    @array = b3_unpack81("012", "d`+qxW?q");
 
 =cut
 
@@ -493,7 +580,6 @@ sub b3_unpack81
 	# Set up the conversion array on the fly.
 	#
 	my(@convert3) = split(//, $c3);
-	my $c_idx = 0;
 	my @clist;
 
 	for my $x (@val81)
@@ -502,22 +588,23 @@ sub b3_unpack81
 		push @clist, $convert3[int(($x % 27)/9)];
 		push @clist, $convert3[int(($x % 9)/3)];
 		push @clist, $convert3[$x % 3];
-		$c_idx++;
 	}
 
-	return join "", @clist;
+	return wantarray? @clist: join "", @clist;
 }
 
 =head3 b9_unpack81
 
-    $data = b9_unpack81($nine_chars, $packedstring);
+Transform a Base81 string back into a string (or array) using
+only nine characters.
 
-Transform a string (or array) consisting of three and only three
-characters into a Base 81 string.
+    $nine_chars = join "", ('0' .. '8'');
 
-    my $nine_chars = "012345678";
+    $data = b27_unpack81($nine_chars, "d`+qxW?q");
 
-    $str = b9_unpack81($nine_chars, "0028401725032021");
+or
+
+    @array = b27_unpack81($nine_chars, "d`+qxW?q");
 
 =cut
 
@@ -535,30 +622,30 @@ sub b9_unpack81
 	# the don't-care character is changeable.
 	#
 	my(@x9) = split(//, $c9);
-	my $c_idx = 0;
 	my @clist;
 
 	for my $x (@val81)
 	{
 		push @clist, $x9[int($x/9)];
 		push @clist, $x9[$x % 9];
-		$c_idx++;
 	}
 
-	return join "", @clist;
+	return wantarray? @clist: join "", @clist;
 }
 
 
 =head3 b27_unpack81
 
-    $data = b27_unpack81($twenty7_chars, $packedstring);
-
-Transform a string (or array) using only twenty seven
-characters into a Base81 string.
+Transform a Base81 string back into a string (or array) using
+only twenty seven characters.
 
     $twenty7_chars = join("", ('a' .. 'z', '&'));
 
-    $str = b27_unpack81($twenty7_chars, "d`+qxW?q");
+    $data = b27_unpack81($twenty7_chars, "d`+qxW?q");
+
+or
+
+    @array = b27_unpack81($twenty7_chars, "d`+qxW?q");
 
 =cut
 
@@ -570,14 +657,8 @@ sub b27_unpack81
 
 	my @char81 = split(//, $base81str);
 	my @val81 = map{$b81_decode[ord($_)]} @char81;
-
-#print STDERR "\n";
-#print STDERR map{sprintf("%2s, ", $_)} @char81;
-#print STDERR "\n";
-#print STDERR map{sprintf("%2d, ", $_)} @val81;
-#print STDERR "\n";
-
 	my @tail = splice(@val81, scalar @val81 - scalar(@val81) % 3);
+
 	my(@x27) = split(//, $c27);
 	my @clist;
 
@@ -613,7 +694,7 @@ sub b27_unpack81
 		push @clist, $x27[$x];
 	}
 
-	return join "", @clist;
+	return wantarray? @clist: join "", @clist;
 }
 
 1;
@@ -621,14 +702,76 @@ sub b27_unpack81
 __END__
 
 
-=head1 FUNCTIONS
+=head1 SEE ALSO
 
+=head4 The Base81 Character Set
+
+The Base81 character set is adapted from the Base85 character set
+described by Robert Elz in his RFC1924 of April 1st 1996,
+L<"A Compact Representation of IPv6 Addresses"|https://tools.ietf.org/html/rfc1924>
+which are made up from the 94 printable ASCII characters, minus
+quote marks, comma, slash and backslash, and the brackets.
+
+Despite it being an
+L<April Fool's Day RFC|https://en.wikipedia.org/wiki/April_Fools%27_Day_Request_for_Comments>,
+the reasoning for the choice of characters for the set was solid, and
+Base81 uses them minus four more characters, the angle brackets, the
+ampersand, and the accent mark.
+
+This reduces the character set to:
+
+    '0'..'9', 'A'..'Z', 'a'..'z', '!', '#', '$', '%', '(',
+    ')', '*', '+', '-', ';', '=', '?', '@', '^', '_', '{',
+    '|', '}', and '~'.
+
+and allows the encoded data to be used without issue in JSON or XML.
+
+=cut
 
 =head1 SEE ALSO
 
-L<http://en.wikipedia.org/wiki/Ascii85>
+=head2 Ascii85
+
+Base81 is a subset of Base85, which is similar in concept to
+L<Ascii85|http://en.wikipedia.org/wiki/Ascii85>, a format developed for
+the btoa program, and later adopted with changes by Adobe for
+Postscript's ASCII85Encode filter. There are, of course, modules on CPAN
+that provide this format.
+
+=over 3
+
+=item
+
+L<Convert::Ascii85>
+
+=item
+
+L<Convert::Base85>
+
+=item
+
+L<Convert::Z85>
+
+=back
+
+=head2 Base64
+
+L<Base64|https://en.wikipedia.org/wiki/Base64> encoding is an eight-bit to six-bit
+encoding scheme that, depending on the characters used for encoding, has been used
+for uuencode and MIME transfer, among many other formats. There are, of course,
+modules on CPAN that provide this format.
+
+=over 3
+
+=item
+
+L<Convert::Base64>
+
+=item
 
 L<MIME::Base64>
+
+=back
 
 =head1 AUTHOR
 

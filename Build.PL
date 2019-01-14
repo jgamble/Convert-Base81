@@ -11,7 +11,8 @@ my $build = Module::Build->new(
 	dist_name => 'Convert-Base81',
 
 	requires => {
-		perl=> '5.16.1',
+		perl => '5.16.1',
+		'Math::Int128' => '0.22',
 	},
 
 	configure_requires => {

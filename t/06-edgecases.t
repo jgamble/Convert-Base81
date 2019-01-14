@@ -30,7 +30,7 @@ ok($b81str eq q(C), "4: Base81 string should be 'C', but is '$b81str'");
 # Test the pack with a base3 string that is odd-numbered in length.
 #
 $b81str = b3_pack81($b3chars, q(1-10--011));
-ok($b81str eq q(m>R), "5: Base81 string should be 'm>R', but is '$b81str'");
+ok($b81str eq q(m?R), "5: Base81 string should be 'm?R', but is '$b81str'");
 
 
 #
@@ -43,7 +43,7 @@ ok($b81str eq q(a), "6: Base81 string should be 'a', but is '$b81str'");
 # Test the pack with a base9 string that is odd-numbered in length.
 #
 $b81str = b9_pack81($b9chars, q(53813));
-ok($b81str eq q(m>R), "7: Base81 string should be 'm>R', but is '$b81str'");
+ok($b81str eq q(m?R), "7: Base81 string should be 'm?R', but is '$b81str'");
 
 #
 # Test the base 27 pack with a string that is short.
