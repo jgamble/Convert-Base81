@@ -559,11 +559,11 @@ perform that duty.
 Transform a Base81 string back into a string (or array) using
 only three characters.
 
-    $data = b3_unpack81("012", "d`+qxW?q");
+    $data = b3_unpack81("012", "d$+qxW?q");
 
 or
 
-    @array = b3_unpack81("012", "d`+qxW?q");
+    @array = b3_unpack81("012", "d$+qxW?q");
 
 =cut
 
@@ -600,11 +600,11 @@ only nine characters.
 
     $nine_chars = join "", ('0' .. '8'');
 
-    $data = b27_unpack81($nine_chars, "d`+qxW?q");
+    $data = b27_unpack81($nine_chars, "d$+qxW?q");
 
 or
 
-    @array = b27_unpack81($nine_chars, "d`+qxW?q");
+    @array = b27_unpack81($nine_chars, "d$+qxW?q");
 
 =cut
 
@@ -641,11 +641,11 @@ only twenty seven characters.
 
     $twenty7_chars = join("", ('a' .. 'z', '&'));
 
-    $data = b27_unpack81($twenty7_chars, "d`+qxW?q");
+    $data = b27_unpack81($twenty7_chars, "d$+qxW?q");
 
 or
 
-    @array = b27_unpack81($twenty7_chars, "d`+qxW?q");
+    @array = b27_unpack81($twenty7_chars, "d$+qxW?q");
 
 =cut
 
@@ -704,7 +704,7 @@ __END__
 
 =head1 SEE ALSO
 
-=head4 The Base81 Character Set
+=head2 The Base81 Character Set
 
 The Base81 character set is adapted from the Base85 character set
 described by Robert Elz in his RFC1924 of April 1st 1996,
@@ -727,8 +727,6 @@ This reduces the character set to:
 and allows the encoded data to be used without issue in JSON or XML.
 
 =cut
-
-=head1 SEE ALSO
 
 =head2 Ascii85
 
