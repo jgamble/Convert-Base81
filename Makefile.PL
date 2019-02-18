@@ -6,6 +6,7 @@ WriteMakefile
   'NAME' => 'Convert::Base81',
   'VERSION_FROM' => 'lib/Convert/Base81.pm',
   'PREREQ_PM' => {
+                   'Math::Int128' => '0.22',
                    'Test::More' => 0
                  },
   'INSTALLDIRS' => 'site',

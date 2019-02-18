@@ -10,7 +10,7 @@ use Math::Int128 qw(uint128 uint128_to_number
 
 #use Smart::Comments q(###);
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 
 use Exporter qw(import);
 
@@ -697,11 +697,6 @@ sub b27_unpack81
 	return wantarray? @clist: join "", @clist;
 }
 
-1;
-
-__END__
-
-
 =head1 SEE ALSO
 
 =head2 The Base81 Character Set
@@ -734,7 +729,7 @@ Base81 is a subset of Base85, which is similar in concept to
 L<Ascii85|http://en.wikipedia.org/wiki/Ascii85>, a format developed for
 the btoa program, and later adopted with changes by Adobe for
 Postscript's ASCII85Encode filter. There are, of course, modules on CPAN
-that provide this format.
+that provide these formats.
 
 =over 3
 
@@ -757,7 +752,7 @@ L<Convert::Z85>
 L<Base64|https://en.wikipedia.org/wiki/Base64> encoding is an eight-bit to six-bit
 encoding scheme that, depending on the characters used for encoding, has been used
 for uuencode and MIME transfer, among many other formats. There are, of course,
-modules on CPAN that provide this format.
+modules on CPAN that provide these formats.
 
 =over 3
 
@@ -783,17 +778,22 @@ I will be notified, and then you'll automatically be notified of progress on you
 
 =head1 SUPPORT
 
-You can find documentation for this module with the perldoc command.
+This module is on Github at L<https://github.com/jgamble/Convert-Base81>.
 
-    perldoc Convert::Base81
+You can also look for information on L<MetaCPAN|https://metacpan.org/release/Convert-Base81>.
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2018 John M. Gamble.
+Copyright (c) 2019 John M. Gamble.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published
 by the Free Software Foundation; or the Artistic License.
 
-See http://dev.perl.org/licenses/ for more information.
+See L<http://dev.perl.org/licenses/> for more information.
+
+
+1;
+
+__END__
 
